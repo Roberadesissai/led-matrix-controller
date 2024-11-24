@@ -2,6 +2,9 @@
 import { create } from 'zustand';
 import { LEDState } from '@/types/mqtt';
 import { MQTTClientService } from '../mqtt/client';
+import { config } from '@/config/env';
+import mqtt from 'mqtt';
+import { MqttClient } from 'mqtt';
 
 interface LEDStore extends LEDState {
   toggleLED: (index: number) => void;
@@ -12,11 +15,14 @@ interface LEDStore extends LEDState {
   updateAllStates: (states: Record<string, boolean>) => void;
   loadPattern: (newPattern: Set<number>) => void;
   setLeds: (leds: Set<number>) => void;
+  connect: () => void;
 }
 
 interface LEDStoreState extends LEDStore {
   lastError?: string;
   isConnected: boolean;
+  socket: WebSocket | null;
+  client: MqttClient | null;
 }
 
 export const useLEDStore = create<LEDStoreState>((set, get) => {
@@ -30,6 +36,8 @@ export const useLEDStore = create<LEDStoreState>((set, get) => {
     brightness: 255,
     isConnected: false,
     lastError: undefined,
+    socket: null,
+    client: null,
 
     toggleLED: (index: number) => {
       mqttClient.sendCommand({ action: 'toggle', index });
@@ -78,6 +86,52 @@ export const useLEDStore = create<LEDStoreState>((set, get) => {
     setLeds: (leds: Set<number>) => {
       set({ activeLeds: leds });
     },
+
+    connect: () => {
+      try {
+        const client = mqtt.connect(config.mqtt.url, config.mqtt.options);
+
+        client.on('connect', () => {
+          console.log('Connected to MQTT broker');
+          set({ isConnected: true, client });
+          
+          // Subscribe to necessary topics
+          client.subscribe('led/matrix/#', (err) => {
+            if (err) console.error('Subscription error:', err);
+          });
+        });
+
+        client.on('error', (error) => {
+          console.error('MQTT error:', error);
+          set({ isConnected: false, client: null });
+        });
+
+        client.on('close', () => {
+          console.log('MQTT connection closed');
+          set({ isConnected: false, client: null });
+          // Attempt to reconnect after delay
+          setTimeout(() => get().connect(), 5000);
+        });
+
+        client.on('message', (topic, message) => {
+          // Handle incoming messages
+          const payload = JSON.parse(message.toString());
+          switch(topic) {
+            case 'led/matrix/state':
+              set({ activeLeds: new Set(payload.leds) });
+              break;
+            case 'led/matrix/brightness':
+              set({ brightness: payload.value });
+              break;
+            // Add other cases as needed
+          }
+        });
+
+      } catch (error) {
+        console.error('Connection error:', error);
+        set({ isConnected: false, client: null });
+      }
+    },
   };
 });
 
@@ -94,7 +148,8 @@ export function useLEDMatrix() {
     updateLEDState,
     updateAllStates,
     loadPattern,
-    setLeds
+    setLeds,
+    connect
   } = useLEDStore();
 
   return {
@@ -108,6 +163,7 @@ export function useLEDMatrix() {
     updateLEDState,
     updateAllStates,
     loadPattern,
-    setLeds
+    setLeds,
+    connect
   };
 }
