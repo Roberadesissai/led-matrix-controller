@@ -5,29 +5,18 @@ import { Card } from "@/components/ui/card";
 import { useLEDMatrix } from "@/lib/store/led-store";
 import { LEDGrid } from "@/components/led-matrix/led-grid";
 import { BrightnessSlider } from "@/components/controls/brightness-slider";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { 
   Activity, Zap, Timer, RefreshCcw, Save, Download, 
-  Trash2, Undo, Sun, Laptop, Lightbulb, Wifi, Upload
+  Trash2, Undo, Sun, Laptop, Lightbulb, Wifi
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "react-hot-toast";
-import { saveAs } from 'file-saver';
-import { MonitorTime } from '@/components/monitor/monitor-time';
 
 export default function Home() {
-  const { activeLeds, brightness, isConnected, clearAll, setLeds, setBrightness } = useLEDMatrix();
-  const [mounted, setMounted] = useState(false);
-  const [uptime, setUptime] = useState(0);
+  const { activeLeds, brightness, isConnected, clearAll } = useLEDMatrix();
+  const [uptime, setUptime] = useState<number>(0);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
-
-  useEffect(() => {
-    setMounted(true);
-    const interval = setInterval(() => {
-      setUptime(prev => prev + 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Animation variants for cards
   const containerVariants = {
@@ -62,79 +51,38 @@ export default function Home() {
     },
     {
       title: "Uptime",
-      value: mounted ? `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m` : "Loading...",
+      value: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`,
       icon: Timer,
       color: "from-purple-500 to-violet-500",
       bgGlow: "purple"
     },
     {
       title: "Last Update",
-      value: <MonitorTime />,
+      value: lastUpdate.toLocaleTimeString(),
       icon: RefreshCcw,
       color: "from-blue-500 to-cyan-500",
       bgGlow: "blue"
     }
   ];
 
-  const handleExport = useCallback(() => {
-    const ledData = Array.from(activeLeds);
-    const dataStr = JSON.stringify({ leds: ledData, brightness });
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    saveAs(blob, 'led-pattern.json');
-  }, [activeLeds, brightness]);
-
-  const handleImport = useCallback(() => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        const text = await file.text();
-        try {
-          const data = JSON.parse(text);
-          // Assuming you have functions to set LEDs and brightness in your store
-          setLeds(new Set(data.leds));
-          setBrightness(data.brightness);
-          toast.success('Pattern imported successfully!');
-        } catch (err) {
-          toast.error('Invalid file format');
-        }
-      }
-    };
-    input.click();
-  }, []);
-
-  const handleSave = useCallback(() => {
-    // Implement save to local storage or backend
-    const pattern = {
-      leds: Array.from(activeLeds),
-      brightness,
-      timestamp: new Date().toISOString(),
-    };
-    // Save to localStorage or your backend
-    localStorage.setItem('savedPattern', JSON.stringify(pattern));
-    toast.success('Pattern saved!');
-  }, [activeLeds, brightness]);
-
   const actionButtons = [
     {
       icon: Save,
       label: "Save Pattern",
       color: "blue",
-      onClick: handleSave
+      onClick: () => toast.success("Pattern saved!")
     },
     {
       icon: Download,
       label: "Export",
       color: "green",
-      onClick: handleExport
+      onClick: () => toast.success("Pattern exported!")
     },
     {
-      icon: Upload,
-      label: "Import",
-      color: "purple",
-      onClick: handleImport
+      icon: Undo,
+      label: "Undo",
+      color: "yellow",
+      onClick: () => toast.error("No actions to undo")
     },
     {
       icon: Trash2,

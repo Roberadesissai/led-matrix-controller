@@ -14,7 +14,6 @@ export function MonitorTime() {
       setTime(now.toLocaleTimeString());
       setDate(now.toLocaleDateString());
     };
-    
     updateTime();
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
@@ -23,16 +22,16 @@ export function MonitorTime() {
   if (!mounted) {
     return (
       <div className="animate-pulse">
-        <div className="text-2xl font-bold bg-gray-700 h-32 rounded" />
-        <div className="text-xs text-muted-foreground bg-gray-700 h-4 w-24 mt-1 rounded" />
+        <div className="text-2xl font-bold bg-gray-700/50 h-8 w-32 rounded mb-1" />
+        <div className="text-xs text-muted-foreground bg-gray-700/50 h-4 w-24 rounded" />
       </div>
     );
   }
 
   return (
-    <>
+    <div>
       <div className="text-2xl font-bold">{time}</div>
       <div className="text-xs text-muted-foreground">{date}</div>
-    </>
+    </div>
   );
 }
